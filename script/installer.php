@@ -39,9 +39,8 @@ class installer
         	DEFINE("WP_PATH", HOME_URL . "/" . WP_FOLDER);
         }
 
-        echo "1";
         if (HOME_URL) {
-        echo "2";
+
         /* APPEND WP-CONTENT RENAME TO WP-CONFIG */
 		$content_string = <<<END
 
@@ -66,10 +65,10 @@ $content_string .= <<<END
 /'.WP_CONTENT_FOLDERNAME);
 END;
 
-		echo "3";
-		/* TODO: THIS NEEDS TO BE UPDATED SO THAT THE WP-CONTENT RENAME APPEND HAPPENS ABOVE DATABASE STUFF */
-		appendContentFolder("./" . WP_FOLDER . "/wp-config.php", $content_string);
-		echo "4";
+
+			/* TODO: THIS NEEDS TO BE UPDATED SO THAT THE WP-CONTENT RENAME APPEND HAPPENS ABOVE DATABASE STUFF */
+			appendContentFolder("./" . WP_FOLDER . "/wp-config.php", $content_string);
+
 		}
 
 
