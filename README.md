@@ -4,7 +4,6 @@
 2. Add these files to the root of your install
 3. Run composer install
 4. Run composer update and the script (installer.php) will carry out a number of tasks..
-
 	1. Move wp-config.php (from initial WP install) to new webroot which is currently set to 'core'
 	2. Set WP-CONTENT to look in a different directory (write's to wp-config.php)
 	3. Delete initial WordPress install (files/folders in root)
