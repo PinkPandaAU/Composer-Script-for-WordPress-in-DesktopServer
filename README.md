@@ -16,3 +16,4 @@ Would love some help tidying this up
 
 ## NOTE!
 Once you have run the script successfully, you must move the appended wp-content declaration at the bottom of wp-config.php to the top of the document
+*Only tested on Windows
