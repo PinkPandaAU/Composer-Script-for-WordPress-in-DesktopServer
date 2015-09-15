@@ -39,9 +39,9 @@ class installer
         	DEFINE("WP_PATH", HOME_URL . "/" . WP_FOLDER);
         }
 
-
+        echo "1";
         if (HOME_URL) {
-
+        echo "2";
         /* APPEND WP-CONTENT RENAME TO WP-CONFIG */
 		$content_string = <<<END
 
@@ -66,9 +66,10 @@ $content_string .= <<<END
 /'.WP_CONTENT_FOLDERNAME);
 END;
 
+		echo "3";
 		/* TODO: THIS NEEDS TO BE UPDATED SO THAT THE WP-CONTENT RENAME APPEND HAPPENS ABOVE DATABASE STUFF */
 		appendContentFolder("./" . WP_FOLDER . "/wp-config.php", $content_string);
-
+		echo "4";
 		}
 
 
@@ -192,16 +193,17 @@ function returnURL($servername, $dbname, $username, $password) {
 		if ($result != null || $result != "") {
 
 			echo "CURRENT HOME URL : " . $result . "\n";
+			mysqli_close($conn);
 			return $result;
 
 		} else {
 
 			echo "WARNING: CURRENT HOME URL IS NULL\n";
+			mysqli_close($conn);
 			return null;
 
 		}
-		
-		mysqli_close($conn);
+
 	}	
 }
 
@@ -224,10 +226,10 @@ function appendContentFolder($wpconfig_file, $appendtext) {
 END;
 
 			/* SPLIT THE CONTENTS OF THE WP_CONFIG FILE BASED ON THE REGEX PATTERN */
-			$split = preg_split($regex_string, $contents);
+			//$split = preg_split($regex_string, $contents);
 
 			/* I'M ABLE TO GET THE SECOND ($split[1]) VALUE BUT $split[0] IS NULL */
-			echo "CAN GET FIRST HALF ==== " . $split[1] . "\n";
+			//echo "CAN GET FIRST HALF ==== " . $split[1] . "\n";
 
 
 			//$contents = preg_replace("/" . $split[1] . "/", $appendtext . $split[1], $contents);
