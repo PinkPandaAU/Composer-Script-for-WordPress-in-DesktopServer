@@ -1,0 +1,37 @@
+{
+	"repositories": [
+        {
+            "type": "package",
+            "package": {
+                "name": "wordpress/wordpress",
+                "type": "webroot",
+                "version": "4.3",
+                "source": {
+                    "type": "git",
+                    "url": "https://github.com/WordPress/WordPress.git",
+                    "reference": "4.3"
+                },
+                "require": {
+                    "fancyguy/webroot-installer": "1.0.0"
+                }
+            }
+        }
+    ],
+    "require": {
+        "wordpress/wordpress": "4.3"
+    },
+    "extra": {
+        "webroot-dir": "core",
+        "webroot-package": "wordpress/wordpress"
+    },
+    "autoload": {
+	    "psr-0": {
+	        "script\\installer" : ""
+	    }
+	},
+    "scripts": {
+	    "post-update-cmd": [
+	        "script\\installer::postUpdate"
+	    ]
+	}
+}
