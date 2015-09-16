@@ -32,6 +32,9 @@
     "scripts": {
 	    "post-update-cmd": [
 	        "script\\installer::postUpdate"
-	    ]
+	    ],
+        "post-package-install": [
+            "script\\installer::postPackageInstall"
+        ]
 	}
 }
