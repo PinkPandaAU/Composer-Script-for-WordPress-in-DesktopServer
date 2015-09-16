@@ -11,12 +11,10 @@ class installer
     {
 
         $composer = $event->getComposer();
-
         runTasks();
 
     }
 
-    
 
     public static function postPackageUpdate(Event $event)
     {
@@ -32,10 +30,9 @@ class installer
         $installedPackage = $event->getOperation()->getPackage();
         echo "Script callback - Just installed " . $installedPackage . "\n";
 
-        if (strpos($installedPackage, 'wordpress/wordpress') !== false) {
+        if (isWordpress($installedPackage)) {
 		    runTasks();
 		}
-
 
     }
 
@@ -43,6 +40,14 @@ class installer
     {
     // make cache toasty
     }
+}
+
+function isWordpress($installedPackage) {
+	if (strpos($installedPackage, 'wordpress/wordpress') !== false) {
+	    return true;
+	} else {
+		return false;
+	}
 }
 
 function runTasks() {
