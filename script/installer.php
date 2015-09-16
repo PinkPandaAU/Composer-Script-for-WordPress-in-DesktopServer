@@ -2,6 +2,7 @@
 namespace script;
 
 use Composer\Script\Event;
+use Composer\Installer\PackageEvent;
 
 
 class installer
@@ -11,38 +12,168 @@ class installer
 
         $composer = $event->getComposer();
 
-        $newline = "\n\n";
-        echo $newline;
+        runTasks();
 
-        DEFINE("WP_FOLDER", "core");
-        DEFINE("WP_CONTENT", "content");
+    }
+
+    
+
+    public static function postPackageUpdate(Event $event)
+    {
+    $packageName = $event->getOperation()
+        ->getPackage()
+        ->getName();
+    echo "$packageName\n";
+    // do stuff
+    }
+
+    public static function postPackageInstall(PackageEvent $event)
+    {
+        $installedPackage = $event->getOperation()->getPackage();
+        echo "Script callback - Just installed " . $installedPackage . "\n";
+
+        if (strpos($installedPackage, 'wordpress/wordpress') !== false) {
+		    runTasks();
+		}
 
 
-        $old_content = "./" . WP_FOLDER . "/" . "wp-content";
-        $new_content = "./" . WP_FOLDER . "/" . WP_CONTENT;
+    }
+
+    public static function warmCache(Event $event)
+    {
+    // make cache toasty
+    }
+}
+
+function runTasks() {
+
+	$newline = "\n\n";
+    echo $newline;
+
+    DEFINE("WP_FOLDER", "core");
+    DEFINE("WP_CONTENT", "content");
+    DEFINE("WP_CONTENT_PATH", WP_FOLDER . "/" . WP_CONTENT);
+    DEFINE("WP_CONFIG_PATH", WP_FOLDER . "/wp-config.php");
 
 
-        /* MOVE WP-CONFIG FILE */
-        if (!file_exists("./" . WP_FOLDER . "/wp-config.php")) {
-        	if (file_exists("./wp-config.php")) {
-	        	rename("./wp-config.php", "./" . WP_FOLDER . "/wp-config.php");
-	        	echo "MOVED WP-CONFIG FILE TO WORDPRES FOLDER" . $newline; 
-        	}
-        	echo "SKIP: WP-CONFIG FILE ALREADY MOVED\n";
-        }
+    $old_content = "./" . WP_FOLDER . "/" . "wp-content";
+    $new_content = "./" . WP_CONTENT_PATH;
 
 
-        $db_credentials = returnDBCredentials("./". WP_FOLDER . "/wp-config.php");
-        $homeurl = returnURL($db_credentials["DB_HOST"], $db_credentials["DB_NAME"], $db_credentials["DB_USER"], $db_credentials["DB_PASSWORD"]);
-        if ($homeurl != null) {
-        	DEFINE("HOME_URL", $homeurl);
-        	DEFINE("WP_PATH", HOME_URL . "/" . WP_FOLDER);
-        }
+    $user_input = true;
 
-        if (HOME_URL) {
 
-        /* APPEND WP-CONTENT RENAME TO WP-CONFIG */
-		$content_string = <<<END
+    /* MOVE WP-CONFIG FILE */
+    if (!file_exists("./" . WP_FOLDER . "/wp-config.php")) {
+
+    	/* WP-CONFIG DOESNT EXIST IN CORE */
+    	echo "wp-config.php COULD NOT BE FOUND IN CORE\n";
+
+    	if (file_exists("./wp-config.php")) {
+
+    		/* FILE EXISTS IN ROOT OF PROJECT */
+
+    		echo "FOUND wp-config.php IN ROOT\n";
+        	rename("./wp-config.php", "./" . WP_FOLDER . "/wp-config.php");
+        	echo "MOVED WP-CONFIG FILE TO CORE FOLDER\n"; 
+
+    	} else {
+
+    		/* NO WP-CONFIG EXISTS ANYWHERE */
+    		echo "NO INSTANCE OF wp-config.php COULD BE FOUND ANYWHERE. EXITING\n";
+
+    		if ($user_input) {
+
+    			echo "WILL ATTEMPT TO GERNERATE wp-config.php BASED ON SAMPLE FILE AND USER INPUT\n";
+    			generateUserWPConfig();	
+
+    		} else {
+
+    			/* USER INPUT HAS BEEN SET TO FALSE SO SCRIPT WILL NOT PROMPT FOR CUSTOM WP-CONFIG VALUES. EXITING... */
+    			echo "USER INPUT HAS BEEN SET TO FALSE SO SCRIPT WILL NOT PROMPT FOR CUSTOM WP-CONFIG VALUES. EXITING...";
+    			return;
+
+    		}
+
+    	}
+
+    } else {
+
+    	/* WP-CONFIG ALREADY EXISTS IN CORE */
+    	echo "SKIP: wp-config.php FILE ALREADY EXISTS IN CORE\n";
+
+    }
+
+    echo $newline;
+
+    /* MERGE core/wp-content WITH core/content */
+    $sourcePath = "core/wp-content";
+    $targetPath = "core/content";
+
+    /* IF wp-content FOLDER EXISTS, COPY TO TARGET PATH (THIS HAPPENS BEFORE DELETION BELOW) */
+    if (file_exists($sourcePath)) {
+    	echo "wp-content FOUND IN " . $sourcePath . "\n";
+    	Helper::copy($sourcePath, $targetPath);
+    	echo "COPIED CONTENTS OF " . $sourcePath . " TO " . $targetPath . "\n";
+    	echo $newline;
+    }
+	
+	/* DELETE UNWANTED FILES (INCLUDING wp-content FOLDER IN CORE) */
+    $files = array(
+    	"wp-admin",
+    	"wp-includes",
+    	"wp-content",
+    	"license.txt",
+    	"readme.html",
+    	"wp-activate.php",
+    	"wp-blog-header.php",
+    	"wp-comments-post.php",
+    	"wp-config-sample.php",
+    	"wp-cron.php",
+    	"wp-links-opml.php",
+    	"wp-load.php",
+    	"wp-login.php",
+    	"wp-mail.php",
+    	"wp-settings.php",
+    	"wp-signup.php",
+    	"wp-trackback.php",
+    	"xmlrpc.php",
+    	"core/wp-content"
+	);
+
+    foreach ($files as $file) {
+
+    	$filename = "./" . $file;
+    	if (file_exists($filename)) {
+    		echo "REMOVING - " . $filename . $newline;
+    		if (is_dir($filename)) {
+
+    			rrmdir($filename);
+
+    		} else {
+    			unlink($filename);
+    		}
+    		
+    	}
+    }
+
+    if (file_exists("./" . WP_CONFIG_PATH)) {
+
+	    $db_credentials = returnDBCredentials("./". WP_FOLDER . "/wp-config.php");
+
+	    if ($db_credentials != null) {
+	    	
+		    $homeurl = returnURL($db_credentials["DB_HOST"], $db_credentials["DB_NAME"], $db_credentials["DB_USER"], $db_credentials["DB_PASSWORD"]);
+
+		    if ($homeurl != null) {
+		    	DEFINE("HOME_URL", $homeurl);
+		    	DEFINE("WP_PATH", HOME_URL . "/" . WP_FOLDER);
+		    }
+
+		    if (HOME_URL) {
+
+			    /* APPEND WP-CONTENT RENAME TO WP-CONFIG */
+				$content_string = <<<END
 
 
 // ========================
@@ -66,101 +197,149 @@ $content_string .= <<<END
 END;
 
 
-			/* TODO: THIS NEEDS TO BE UPDATED SO THAT THE WP-CONTENT RENAME APPEND HAPPENS ABOVE DATABASE STUFF */
-			appendContentFolder("./" . WP_FOLDER . "/wp-config.php", $content_string);
+				/* TODO: THIS NEEDS TO BE UPDATED SO THAT THE WP-CONTENT RENAME APPEND HAPPENS ABOVE DATABASE STUFF */
+				appendContentFolder("./" . WP_FOLDER . "/wp-config.php", $content_string);
 
-		}
-
-
-        /* DELETE UNWANTED FILES */
-        $files = array(
-        	"wp-admin",
-        	"wp-includes",
-        	"wp-content",
-        	"license.txt",
-        	"readme.html",
-        	"wp-activate.php",
-        	"wp-blog-header.php",
-        	"wp-comments-post.php",
-        	"wp-config-sample.php",
-        	"wp-cron.php",
-        	"wp-links-opml.php",
-        	"wp-load.php",
-        	"wp-login.php",
-        	"wp-mail.php",
-        	"wp-settings.php",
-        	"wp-signup.php",
-        	"wp-trackback.php",
-        	"xmlrpc.php"
-    	);
-
-        foreach ($files as $file) {
-
-        	$filename = "./" . $file;
-        	if (file_exists($filename)) {
-        		echo "REMOVING - " . $filename . $newline;
-        		if (is_dir($filename)) {
-        			rrmdir($filename);
-        		} else {
-        			unlink($filename);
-        		}
-        		
-        	}
-        }
-
-
-        /* UPDATE INDEX PATH */
-        $indexfile_path = "./index.php";
-        if (file_exists($indexfile_path)) {
-
-        	$path = returnBlogHeaderPath($indexfile_path);
-
-        	if ($path == "/". WP_FOLDER) {
-        		echo "SKIP: BLOG HEADER PATH IN INDEX.PHP ALREADY RENAMED\n";
-        	} else {
-        		updateBlogHeaderPath($indexfile_path, "/". WP_FOLDER); 
-        		echo "UPDATED INDEX.PHP BLOG HEADER PATH" . $newline;
-        	}
-        	//echo "PRECEEDING TEXT IS!!! " . returnBlogHeaderPath($indexfile_path) . $newline . $newline;
-        }
-
-
-        /* UPDATE WP-CONTENT FOLDER NAME */
-        if(file_exists($old_content)) {
-        	rename($old_content, $new_content);
-        	echo "RENAMED " . $old_content . " TO " . $new_content . $newline;
-        } else {
-        	echo "SKIP: WP-CONTENT FOLDER HAS ALREADY BEEN RENAMED" . $newline;
-        }
-
-
-        /* UPDATE DATABASE */
-        
-		if ($db_credentials) {
-			if (WP_PATH) {
-				updateDatabase($db_credentials["DB_HOST"], $db_credentials["DB_NAME"], $db_credentials["DB_USER"], $db_credentials["DB_PASSWORD"], WP_PATH);
 			} else {
-				echo "WARNING : SKIPPING DATABASE UPDATE AS WP_PATH DOES NOT CONTAIN A VALID VALUE";
-			}
-		}
 
-    }
+				echo "WARNING: COULD NOT UPDATE wp-config.php WITH SETTINGS FOR NEW wp-content LOCATION (HOME_URL) IS NULL\n";
+
+			}
+
+		} else {
+
+			echo "ERROR: COULD NOT GET DB CREDENTIALS FROM wp-config.php. EXITING...\n";
+	    	return;
+
+	    }
+
+	} else {
+
+		echo "ERROR: COULD NOT FIND wp-config.php TO UPDATE wp-content LOCATION\n";
+
+	}
+
 
     
 
-    public static function postPackageUpdate(Event $event)
-    {
-    $packageName = $event->getOperation()
-        ->getPackage()
-        ->getName();
-    echo "$packageName\n";
-    // do stuff
+
+    /* UPDATE INDEX PATH */
+    $indexfile_path = "./index.php";
+    $indexfile_core_path = "./" . WP_FOLDER . "/index.php";
+
+    if (!file_exists($indexfile_path)) {
+
+    	echo "COULD NOT FIND index.php IN ROOT\n";
+    	$indexfile_core_path;
+    	if (file_exists($indexfile_core_path))
+    	{
+    		echo "FOUND index.php IN " . WP_FOLDER . "\n";
+    		copy($indexfile_core_path, $indexfile_path);
+    		echo "COPIED " . $indexfile_path . " TO " . $indexfile_core_path . "\n";
+    	} else {
+
+    		echo "ERROR: COULD NOT FIND ANY EXISTANCE OF index.php. SITE STRUCTURE WILL BE BROKEN\n";
+    		return;
+
+    	}
+
     }
 
-    public static function warmCache(Event $event)
-    {
-    // make cache toasty
+    if (file_exists($indexfile_path)) {
+
+    	echo "FOUND index.php IN ROOT\n";
+
+    	$path = returnBlogHeaderPath($indexfile_path);
+
+    	if ($path == "/". WP_FOLDER) {
+    		echo "SKIP: BLOG HEADER PATH IN index.php ALREADY RENAMED\n";
+    	} else {
+    		updateBlogHeaderPath($indexfile_path, "/". WP_FOLDER); 
+    		echo "UPDATED index.php BLOG HEADER PATH" . $newline;
+    	}
+    	//echo "PRECEEDING TEXT IS!!! " . returnBlogHeaderPath($indexfile_path) . $newline . $newline;
     }
+
+
+    /* UPDATE WP-CONTENT FOLDER NAME */
+    /* EDIT: THIS IS OBSELETE AS wp-content IS DELETED AFTER IT'S CONTENTS ARE TRANSFERRED REMOVED */
+    // if(file_exists($old_content)) {
+
+    // 	if(file_exists($new_content)) {
+
+	   //  	if (rename($old_content, $new_content)) {
+	   //  		echo "RENAMED " . $old_content . " TO " . $new_content . $newline;
+	   //  	} else {
+	   //  		echo "ERROR RENAMING!" . $newline;
+	   //  	}
+
+    // 	} else {
+    // 		echo "ERROR: WP-CONTENT AND NEW/RENAMED WP-CONTENT FOLDER ALREADY EXISTS. THEREFORE WP-CONTENT CANNOT BE RENAMED TO NEW" . $newline;
+    // 	}
+    	
+    // } else {
+    // 	echo "SKIP: WP-CONTENT FOLDER HAS ALREADY BEEN RENAMED" . $newline;
+    // }
+
+
+    /* UPDATE DATABASE */
+    
+	if ($db_credentials) {
+		if (WP_PATH) {
+			updateDatabase($db_credentials["DB_HOST"], $db_credentials["DB_NAME"], $db_credentials["DB_USER"], $db_credentials["DB_PASSWORD"], WP_PATH);
+		} else {
+			echo "WARNING : SKIPPING DATABASE UPDATE AS WP_PATH DOES NOT CONTAIN A VALID VALUE";
+		}
+	}
+}
+
+function generateUserWPConfig() {
+
+	$sample_file = "./" . WP_FOLDER . "/wp-config-sample.php";
+
+	if (file_exists($sample_file)) {
+
+		copy($sample_file, "./" . WP_CONFIG_PATH);
+		echo "COPIED SAMPLE FILE TO " . WP_CONFIG_PATH . "\n";
+
+		echo "\n";
+
+		echo "PLEASE ENTER YOUR HOST ADDRESS: ";
+		$db_host_custom = trim(fgets(STDIN));
+
+		echo "\n";
+
+		echo "PLEASE ENTER YOUR DATABASE NAME: ";
+		$db_name_custom = trim(fgets(STDIN));
+
+		echo "\n";
+		
+		echo "PLEASE ENTER YOUR DB USERNAME: ";
+		$db_user_custom = trim(fgets(STDIN));
+
+		echo "\n";
+
+		echo "PLEASE ENTER YOUR DB PASSWORD: ";
+		$db_password_custom = trim(fgets(STDIN));
+
+		echo "\n";
+
+
+		$config_contents = file_get_contents($sample_file);
+
+		if ($config_contents != null && $config_contents != "") {
+
+			$config_contents = str_replace("localhost", $db_host_custom, $config_contents);
+			$config_contents = str_replace("database_name_here", $db_name_custom, $config_contents);
+			$config_contents = str_replace("username_here", $db_user_custom, $config_contents);
+			$config_contents = str_replace("password_here", $db_password_custom, $config_contents);
+
+			//echo $db_host_custom;
+
+			file_put_contents("./" . WP_CONFIG_PATH, $config_contents);
+		}	
+
+	}
 }
 
 function returnURL($servername, $dbname, $username, $password) {
@@ -278,10 +457,10 @@ function updateBlogHeaderPath($index_file, $path) {
 function returnDBCredentials($wpconfig_file) {
 
 	$credentials = array();
-	$wp_db_host;
-	$wp_db_name;
-	$wp_db_user;
-	$wp_db_password;
+	$wp_db_host = null;
+	$wp_db_name = null;
+	$wp_db_user = null;
+	$wp_db_password = null;
 
 	if (file_exists($wpconfig_file)) {
 
@@ -342,7 +521,7 @@ function returnDBCredentials($wpconfig_file) {
 			);
 			return $credentials;
 		} else {
-			echo "ERROR: RETURNING NULL FROM WP-CONFIG. COULD NOT FIND ALL VALUES IN FILE" . "\n" . "\n";
+			echo "ERROR: COULD NOT FIND ALL DB CONNECTION VALUES IN wp-config.php" . "\n" . "\n";
 			return null;
 		}
 	} else {
@@ -411,4 +590,32 @@ function rrmdir($dir) {
      reset($objects);
      rmdir($dir);
   }
+}
+
+class Helper {
+
+    static function copy($source, $target) {
+        if (!is_dir($source)) {//it is a file, do a normal copy
+            copy($source, $target);
+            return;
+        }
+
+        //it is a folder, copy its files & sub-folders
+        @mkdir($target);
+        $d = dir($source);
+        $navFolders = array('.', '..');
+        while (false !== ($fileEntry=$d->read() )) {//copy one by one
+            //skip if it is navigation folder . or ..
+            if (in_array($fileEntry, $navFolders) ) {
+                continue;
+            }
+
+            //do copy
+            $s = "$source/$fileEntry";
+            $t = "$target/$fileEntry";
+            self::copy($s, $t);
+        }
+        $d->close();
+    }
+
 }
